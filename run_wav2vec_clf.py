@@ -101,11 +101,11 @@ class DataTrainingArguments:
         metadata={"help": "An optional input evaluation data file to test on (a csv or JSON file)."},
     )
     input_column: Optional[str] = field(
-        default="path",
+        default="file_name",
         metadata={"help": "The name of the column in the datasets containing the audio path."},
     )
     target_column: Optional[str] = field(
-        default="emotion",
+        default="age_",
         metadata={"help": "The name of the column in the datasets containing the labels."},
     )
     delimiter: Optional[str] = field(
@@ -237,7 +237,7 @@ def main():
         datasets = load_dataset(
             "csv",
             data_files=data_files,
-            delimiter=DELIMITERS.get(data_args.delimiter, "\t"),
+            #delimiter=DELIMITERS.get(data_args.delimiter, "\t"),
             cache_dir=model_args.cache_dir
         )
     else:
@@ -288,33 +288,22 @@ def main():
     #     use_auth_token=True if model_args.use_auth_token else None,
     # )
     feature_extractor = Wav2Vec2FeatureExtractor.from_pretrained(
-        model_args.feature_extractor_name if model_args.feature_extractor_name else model_args.model_name_or_path,
+        model_args.model_name_or_path,
         cache_dir=model_args.cache_dir,
         revision=model_args.model_revision,
         use_auth_token=True if model_args.use_auth_token else None,
     )
-    target_sampling_rate = feature_extractor.feature_extractor.sampling_rate
+    print(feature_extractor)
+    target_sampling_rate = feature_extractor.sampling_rate
 
-    if model_args.model_mode == "wav2vec":
-        model = Wav2Vec2ForSpeechClassification.from_pretrained(
-            model_args.model_name_or_path,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=config,
-            cache_dir=model_args.cache_dir,
-            revision=model_args.model_revision,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
-    elif model_args.model_mode == "hubert":
-        model = HubertForSpeechClassification.from_pretrained(
-            model_args.model_name_or_path,
-            from_tf=bool(".ckpt" in model_args.model_name_or_path),
-            config=config,
-            cache_dir=model_args.cache_dir,
-            revision=model_args.model_revision,
-            use_auth_token=True if model_args.use_auth_token else None,
-        )
-    else:
-        raise ValueError("--model_mode does not exist in predefined modes: " + ",".join(MODEL_MODES))
+    model = Wav2Vec2ForSpeechClassification.from_pretrained(
+        model_args.model_name_or_path,
+        from_tf=bool(".ckpt" in model_args.model_name_or_path),
+        config=config,
+        cache_dir=model_args.cache_dir,
+        revision=model_args.model_revision,
+        use_auth_token=True if model_args.use_auth_token else None,
+    )
 
     if model_args.freeze_feature_extractor:
         model.freeze_feature_extractor()
@@ -323,7 +312,7 @@ def main():
     # data_args.min_duration_in_seconds, data_args.max_duration_in_seconds
 
     def speech_file_to_array_fn(path):
-        speech_array, sampling_rate = torchaudio.load(path)
+        speech_array, sampling_rate = torchaudio.load(os.path.join('/home/danielkim/data/train_dataset', path + '.wav'))
         resampler = torchaudio.transforms.Resample(sampling_rate, target_sampling_rate)
         speech = resampler(speech_array).squeeze().numpy()
         return speech
